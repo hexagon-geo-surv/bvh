@@ -16,6 +16,7 @@ public:
             data = std::move(default_val);
         return data;
     }
+    virtual ~InputStream() = default;
 
 protected:
     virtual size_t read_raw(void*, size_t) = 0;
@@ -27,6 +28,7 @@ public:
     template <typename T>
     bool write(const T& data) { return write_raw(&data, sizeof(T)); }
 
+    virtual ~OutputStream() = default;
 protected:
     virtual bool write_raw(const void*, size_t) = 0;
 };

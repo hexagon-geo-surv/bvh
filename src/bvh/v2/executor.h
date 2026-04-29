@@ -53,11 +53,12 @@ struct ParallelExecutor : Executor<ParallelExecutor> {
             return loop(begin, end);
 
         auto chunk_size = std::max(size_t{1}, (end - begin) / thread_pool.get_thread_count());
+        ThreadPool::TaskGroup group;
         for (size_t i = begin; i < end; i += chunk_size) {
             size_t next = std::min(end, i + chunk_size);
-            thread_pool.push([=] (size_t) { loop(i, next); });
+            thread_pool.push(group, [=] (size_t) { loop(i, next); });
         }
-        thread_pool.wait();
+        thread_pool.wait(group);
     }
 
     template <typename T, typename Reduce, typename Join>
@@ -70,14 +71,15 @@ struct ParallelExecutor : Executor<ParallelExecutor> {
 
         auto chunk_size = std::max(size_t{1}, (end - begin) / thread_pool.get_thread_count());
         std::vector<T> per_thread_result(thread_pool.get_thread_count(), init);
+        ThreadPool::TaskGroup group;
         for (size_t i = begin; i < end; i += chunk_size) {
             size_t next = std::min(end, i + chunk_size);
-            thread_pool.push([&, i, next] (size_t thread_id) {
+            thread_pool.push(group, [&, i, next] (size_t thread_id) {
                 auto& result = per_thread_result[thread_id];
                 reduce(result, i, next);
             });
         }
-        thread_pool.wait();
+        thread_pool.wait(group);
         for (size_t i = 1; i < thread_pool.get_thread_count(); ++i)
             join(per_thread_result[0], std::move(per_thread_result[i]));
         return per_thread_result[0];

@@ -195,11 +195,12 @@ private:
 
         // Iterate over bins to collect groups of primitives and build BVHs over them in parallel
         std::vector<Bvh<Node>> mini_trees(final_bins.bins.size());
+        ThreadPool::TaskGroup group;
         for (size_t i = 0; i < final_bins.bins.size(); ++i) {
             auto task = new BuildTask(this, mini_trees[i], std::move(final_bins[i].ids));
-            executor_.thread_pool.push([task] (size_t) { task->run(); delete task; });
+            executor_.thread_pool.push(group, [task] (size_t) { task->run(); delete task; });
         }
-        executor_.thread_pool.wait();
+        executor_.thread_pool.wait(group);
 
         return mini_trees;
     }
