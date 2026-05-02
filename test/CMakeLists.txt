@@ -7,6 +7,11 @@ target_link_libraries(simple_example PUBLIC bvh)
 set_target_properties(simple_example PROPERTIES CXX_STANDARD 20)
 add_test(NAME simple_example COMMAND simple_example)
 
+add_executable(threadpool_test threadpool_test.cpp)
+target_link_libraries(threadpool_test PUBLIC bvh)
+set_target_properties(threadpool_test PROPERTIES CXX_STANDARD 20)
+add_test(NAME threadpool_test COMMAND threadpool_test)
+
 add_executable(serialize serialize.cpp)
 target_link_libraries(serialize PUBLIC bvh)
 set_target_properties(serialize PROPERTIES CXX_STANDARD 20)
