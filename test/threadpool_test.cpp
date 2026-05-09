@@ -8,61 +8,56 @@
 #include <vector>
 
 int main() {
-  std::cout << "threadpool_test" << std::endl;
+    bvh::v2::ThreadPool threadpool;
+    std::vector<std::thread> threads;
 
-  bvh::v2::ThreadPool threadpool;
-  std::vector<std::thread> threads;
+    size_t num_threads = 20;
+    size_t num_tasks_per_thread = 10;
+    size_t num_millis = 45;
 
-  size_t num_threads = 200;
-  size_t num_tasks = 10;
-  size_t num_millis = 45;
+    auto estimated_time = std::chrono::milliseconds(
+        num_tasks_per_thread * num_millis * num_threads / threadpool.get_thread_count());
 
-  auto estimated_time = std::chrono::milliseconds(
-      num_tasks * num_millis * num_threads / threadpool.get_thread_count());
+    std::cout
+        << "Total estimated time: "
+        << std::chrono::duration_cast<std::chrono::seconds>(estimated_time)
+        << std::endl;
 
-  std::cout << "total estimated time:"
-            << std::chrono::duration_cast<std::chrono::seconds>(estimated_time)
-            << std::endl;
-
-  // monitoring thread, simply print time so that is is obvious so when that we
-  // can
-  threads.emplace_back([&]() {
-    auto delta = std::max(std::chrono::milliseconds(1), estimated_time / 10);
-    auto elasped = std::chrono::milliseconds(0);
-    auto start = std::chrono::system_clock::now();
-
-    while (std::chrono::system_clock::now() < start + estimated_time) {
-      std::this_thread::sleep_for(delta);
-      elasped += delta;
-      std::cout << "[estimated remaining time: " << estimated_time - elasped
-                << "]" << std::endl;
-    }
-
-    std::cout << "[test should be done by now]" << std::endl;
-  });
-
-  // submit lots of task concurrently
-  for (size_t i = 0; i < num_threads; ++i) {
+    // Creates a simple monitoring thread that waits for `estimated_time` milliseconds, and prints a
+    // message every `estimated_time/10` milliseconds.
     threads.emplace_back([&]() {
-      bvh::v2::ThreadPool::TaskGroup tgroup;
-      for (int j = 0; j < num_tasks; ++j) {
-        threadpool.push(tgroup, [&](size_t) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(num_millis));
-        });
-      }
+        auto delta = std::max(std::chrono::milliseconds(1), estimated_time / 10);
+        auto elapsed = std::chrono::milliseconds(0);
 
-      threadpool.wait(tgroup);
+        while (elapsed < estimated_time) {
+            std::cout << "Remaining time: " << estimated_time - elapsed << std::endl;
+            std::this_thread::sleep_for(delta);
+            elapsed += delta;
+        }
+
+        std::cout << "Finished" << std::endl;
     });
-  }
 
-  std::cout << "wait for " << threads.size() << " threads" << std::endl;
-  for (auto &th : threads) {
-    if (th.joinable()) {
-      th.join();
+    // Submit lots of tasks concurrently.
+    for (size_t i = 0; i < num_threads; ++i) {
+        threads.emplace_back([&]() {
+            bvh::v2::ThreadPool::TaskGroup task_group;
+            for (size_t j = 0; j < num_tasks_per_thread; ++j) {
+                threadpool.push(task_group, [&](size_t) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(num_millis));
+                });
+            }
+            threadpool.wait(task_group);
+        });
     }
-  }
 
-  threadpool.wait_all();
-  std::cout << "done" << std::endl;
-  return 0;
+    std::cout << "Waiting for " << threads.size() << " threads" << std::endl;
+    for (auto& thread : threads) {
+        if (thread.joinable())
+            thread.join();
+    }
+
+    threadpool.wait_all();
+    std::cout << "Done waiting" << std::endl;
+    return 0;
 }
